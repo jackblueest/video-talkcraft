@@ -4,7 +4,7 @@
 // 之前用 import.meta.glob（Vite 专属），Remotion CLI（webpack）不认——渲染导出/Studio
 // 都要走 webpack 打包，所以改为落盘静态索引，两边共用一条代码路径。
 // 新增 gen 卡 / 模板卡后重跑：node scripts/gen-index.mjs（npm run dev/build/studio 已挂前置钩子）。
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { kbsrcMap } from "../kbsrc.map.mjs";
@@ -15,6 +15,18 @@ const list = (dir) =>
     .filter((f) => f.endsWith(".tsx"))
     .map((f) => f.replace(/\.tsx$/, ""))
     .sort();
+
+// 画廊预览 mp4（public/cardpreviews → ../gallery/media）不进 git，放在上游 release `gallery-media`。
+// 新 clone 上该目录不存在，软链悬空，vite build 拷 public/ 时 ENOENT——建个空目录兜底：
+// 构建照常通过，只是卡片预览缺视频（缩略图 cardthumbs 在库里，不受影响）。
+const galleryMedia = join(wb, "../gallery/media");
+if (!existsSync(galleryMedia)) {
+  mkdirSync(galleryMedia, { recursive: true });
+  console.log(
+    "gen-index: gallery/media 不存在，已建空目录（卡片预览视频缺省）。要补齐：\n" +
+      "  gh release download gallery-media --repo Vincentwei1021/video-talkcraft --dir gallery/media --pattern '*.mp4'",
+  );
+}
 
 const banner = "// 自动生成，勿手改：node scripts/gen-index.mjs\n";
 
